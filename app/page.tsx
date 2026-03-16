@@ -1,4 +1,6 @@
-import Link from 'next/link';
+'use client';
+
+import { useRouter } from 'next/navigation';
 import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
 import { CreatorCard } from '@/components/creator-card';
@@ -7,6 +9,7 @@ import { ArrowRight, Sparkles, Users, Target } from 'lucide-react';
 import { creators } from '@/lib/creators-data';
 
 export default function Home() {
+  const router = useRouter();
   const featuredCreators = creators.slice(0, 3);
 
   return (
@@ -41,17 +44,13 @@ export default function Home() {
 
               {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-                <Link href="/creators">
-                  <Button size="lg" className="group">
-                    Browse Creators
-                    <ArrowRight size={18} className="ml-2 group-hover:translate-x-1 transition-transform" />
-                  </Button>
-                </Link>
-                <Link href="/bounties">
-                  <Button size="lg" variant="outline">
-                    Explore Bounties
-                  </Button>
-                </Link>
+                <Button size="lg" className="group" onClick={() => router.push('/creators')}>
+                  Browse Creators
+                  <ArrowRight size={18} className="ml-2 group-hover:translate-x-1 transition-transform" />
+                </Button>
+                <Button size="lg" variant="outline" onClick={() => router.push('/bounties')}>
+                  Explore Bounties
+                </Button>
               </div>
             </div>
           </div>
@@ -105,12 +104,10 @@ export default function Home() {
 
             {/* View All CTA */}
             <div className="text-center mt-12">
-              <Link href="/creators">
-                <Button size="lg" variant="outline" className="group">
-                  View All Creators
-                  <ArrowRight size={18} className="ml-2 group-hover:translate-x-1 transition-transform" />
-                </Button>
-              </Link>
+              <Button size="lg" variant="outline" className="group" onClick={() => router.push('/creators')}>
+                View All Creators
+                <ArrowRight size={18} className="ml-2 group-hover:translate-x-1 transition-transform" />
+              </Button>
             </div>
           </div>
         </section>

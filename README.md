@@ -17,19 +17,33 @@ Stellar is a comprehensive ecosystem designed specifically for non-technical tal
 
 ## Tech Stack
 
+### Frontend
 - **Framework**: Next.js 16 (App Router)
 - **Styling**: Tailwind CSS v4
 - **UI Components**: Shadcn/ui
 - **Icons**: Lucide React
 - **Theme Management**: next-themes
-- **Data**: JSON-based (easily expandable to database)
 - **Language**: TypeScript
+
+### Backend & Smart Contracts
+- **Blockchain**: Stellar Network & Soroban
+- **Smart Contracts**: Rust + Soroban SDK
+- **API**: Rust + Actix-web
+- **Database**: PostgreSQL (extensible)
+- **Cache**: Redis
+- **Event Indexing**: Custom Rust indexer
+
+### Smart Contracts
+1. **Bounty Contract** - Manages bounty creation, applications, and completion
+2. **Escrow Contract** - Secure payment handling with milestone-based releases
+3. **Freelancer Registry** - Profile management, ratings, and verification
+4. **Governance Contract** - Platform fees, parameters, and DAO voting
 
 ## Project Structure
 
 ```
 stellar-platform/
-├── app/
+├── app/                         # Next.js 16 Frontend
 │   ├── page.tsx                 # Landing page
 │   ├── layout.tsx               # Root layout with theme provider
 │   ├── globals.css              # Global styles & design tokens
@@ -52,10 +66,25 @@ stellar-platform/
 │   └── ui/                      # Shadcn/ui components
 ├── lib/
 │   └── creators-data.ts         # Sample data, types, and utilities
-└── public/
-    ├── avatars/                 # Creator avatars
-    ├── covers/                  # Creator cover images
-    └── projects/                # Project showcase images
+├── public/
+│   ├── avatars/                 # Creator avatars
+│   ├── covers/                  # Creator cover images
+│   └── projects/                # Project showcase images
+│
+└── backend/                     # Soroban Smart Contracts & Rust Services
+    ├── contracts/              # Soroban smart contracts
+    │   ├── bounty/            # Bounty management contract
+    │   ├── escrow/            # Payment escrow contract
+    │   ├── freelancer/        # Freelancer registry & ratings
+    │   └── governance/        # Platform governance
+    ├── services/              # Rust backend services
+    │   ├── api/              # REST API service (Actix-web)
+    │   ├── auth/             # Authentication service
+    │   ├── notifications/    # Notification service
+    │   └── indexer/          # Blockchain event indexer
+    ├── Cargo.toml            # Rust workspace configuration
+    ├── docker-compose.yml    # Full stack orchestration
+    └── README.md             # Backend documentation
 ```
 
 ## Core Data Models
@@ -441,27 +470,112 @@ For issues, questions, or suggestions:
 - UI components from shadcn/ui
 - Color system from OKLCH color space
 
+## Backend Services
+
+The backend provides robust Soroban smart contracts and a Rust-based REST API for seamless frontend integration.
+
+### Smart Contracts
+Located in `backend/contracts/`, these Soroban contracts run on the Stellar blockchain:
+
+**Bounty Contract** - Core bounty functionality
+- Create bounties with budget and timeline
+- Accept freelancer applications
+- Track bounty status (open, in-progress, completed, disputed, cancelled)
+- Manage freelancer selection
+
+**Escrow Contract** - Secure payments
+- Hold funds in escrow during project execution
+- Release funds on milestones or timelock
+- Refund capabilities for disputes
+- Multi-condition release mechanisms
+
+**Freelancer Contract** - Talent management
+- Register and manage freelancer profiles
+- Track ratings and review history
+- Maintain verified status badges
+- Aggregate earnings and project history
+
+**Governance Contract** - Platform management
+- Configure platform fees
+- Set bounty budget limits
+- Voting mechanism for proposals
+- Treasury management
+
+### API Service
+REST API built with Actix-web for frontend integration:
+
+```bash
+# Run API server
+cd backend
+cargo run --bin stellar-api
+
+# API will be available at http://localhost:3001
+```
+
+**Key Endpoints:**
+- `POST /api/bounties` - Create bounty
+- `GET /api/bounties` - List bounties with filters
+- `POST /api/bounties/:id/apply` - Apply for bounty
+- `POST /api/freelancers/register` - Register freelancer
+- `GET /api/freelancers` - List freelancers
+- `POST /api/escrow/:id/release` - Release escrowed funds
+
+### Running Full Backend Stack
+
+```bash
+# Start all services with Docker Compose
+cd backend
+docker-compose up
+
+# Services will be available:
+# - API: http://localhost:3001
+# - pgAdmin: http://localhost:5050 (admin/admin)
+# - PostgreSQL: localhost:5432
+# - Redis: localhost:6379
+```
+
+### Backend Development
+
+```bash
+# Build all contracts
+cd backend
+cargo build --release
+
+# Run tests
+cargo test
+
+# Deploy to Stellar Testnet
+cd contracts/bounty
+stellar contract deploy --network testnet --source account-name
+```
+
+See [backend/README.md](./backend/README.md) for comprehensive backend documentation, deployment guides, and smart contract specifications.
+
 ## Roadmap
 
 ### Q1 2024
-- [ ] User authentication system
-- [ ] Creator profiles with edit capabilities
-- [ ] Messaging between creators and clients
+- [x] Frontend UI for creators and bounties
+- [x] Soroban smart contracts (bounty, escrow, freelancer, governance)
+- [ ] User authentication with Stellar wallets
+- [ ] API integration with frontend
 
 ### Q2 2024
-- [ ] Payment processing integration
+- [ ] Payment processing & escrow integration
 - [ ] Ratings and reviews system
-- [ ] Advanced search and filtering
+- [ ] Freelancer verification program
+- [ ] Blockchain event indexing
 
 ### Q3 2024
 - [ ] Mobile app (React Native)
-- [ ] Real-time notifications
-- [ ] Bounty bidding system
+- [ ] Real-time notifications via blockchain events
+- [ ] Milestone-based payment releases
+- [ ] Dispute resolution system
 
 ### Q4 2024
-- [ ] Creator verification program
 - [ ] Portfolio analytics dashboard
-- [ ] API for integrations
+- [ ] Creator verification & reputation NFTs
+- [ ] API for third-party integrations
+- [ ] Decentralized governance voting
 
 ---
 

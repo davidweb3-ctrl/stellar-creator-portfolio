@@ -255,7 +255,6 @@ export const disciplines = [
   'Project Management',
   'Business Development',
   'Brand Strategy',
-  'Data Analysis',
   'Sales',
   'Customer Success',
   'HR & Recruiting',
