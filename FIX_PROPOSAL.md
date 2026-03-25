@@ -1,143 +1,142 @@
-**Solution: Implementing Multipart Form Data Handling and File Storage**
+**Solution: Implement PostgreSQL Full-Text Search**
 
-To address the issue of no file upload support, we will implement multipart form data handling and file storage using Amazon S3.
+To implement full-text search functionality for bounties and freelancers, we will use PostgreSQL's built-in full-text search capabilities. We will create a new function in the `services/api/src/main.rs` file to handle search queries.
 
-### Step 1: Install Required Packages
+### Step 1: Add Dependencies
 
-First, install the required packages:
-```bash
-npm install multer aws-sdk
+First, add the required dependencies to your `Cargo.toml` file:
+```toml
+[dependencies]
+postgres = "0.7.5"
+tokio-postgres = "0.7.5"
 ```
-### Step 2: Configure AWS S3
 
-Create a new file `config/aws.js` with the following code:
-```javascript
-// config/aws.js
-const AWS = require('aws-sdk');
+### Step 2: Create Search Function
 
-AWS.config.update({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: process.env.AWS_REGION,
-});
+Create a new function `search_bounties` and `search_freelancers` in the `services/api/src/main.rs` file:
+```rust
+use tokio_postgres::NoTls;
+use tokio_postgres::Row;
 
-const s3 = new AWS.S3();
+// ...
 
-module.exports = s3;
+async fn search_bounties(
+    pool: &sqlx::PgPool,
+    query: &str,
+) -> Result<Vec<Bounty>, sqlx::Error> {
+    let rows = sqlx::query(
+        "SELECT * FROM bounties 
+         WHERE to_tsvector('english', title || ' ' || description) 
+         @@ to_tsquery('english', $1)",
+    )
+    .bind(query)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| Bounty {
+            id: row.get("id"),
+            title: row.get("title"),
+            description: row.get("description"),
+        })
+        .collect())
+}
+
+async fn search_freelancers(
+    pool: &sqlx::PgPool,
+    query: &str,
+) -> Result<Vec<Freelancer>, sqlx::Error> {
+    let rows = sqlx::query(
+        "SELECT * FROM freelancers 
+         WHERE to_tsvector('english', name || ' ' || bio) 
+         @@ to_tsquery('english', $1)",
+    )
+    .bind(query)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| Freelancer {
+            id: row.get("id"),
+            name: row.get("name"),
+            bio: row.get("bio"),
+        })
+        .collect())
+}
 ```
-### Step 3: Implement Multipart Form Data Handling
 
-Create a new file `middleware/multer.js` with the following code:
-```javascript
-// middleware/multer.js
-const multer = require('multer');
-const s3 = require('../config/aws');
+### Step 3: Update `list_bounties` and `list_freelancers` Functions
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10 MB
-  },
-});
+Update the `list_bounties` and `list_freelancers` functions to include the search query:
+```rust
+async fn list_bounties(
+    pool: &sqlx::PgPool,
+    query: Option<&str>,
+) -> Result<Vec<Bounty>, sqlx::Error> {
+    match query {
+        Some(query) => search_bounties(pool, query).await,
+        None => {
+            let rows = sqlx::query("SELECT * FROM bounties")
+                .fetch_all(pool)
+                .await?;
 
-module.exports = upload;
+            Ok(rows
+                .into_iter()
+                .map(|row| Bounty {
+                    id: row.get("id"),
+                    title: row.get("title"),
+                    description: row.get("description"),
+                })
+                .collect())
+        }
+    }
+}
+
+async fn list_freelancers(
+    pool: &sqlx::PgPool,
+    query: Option<&str>,
+) -> Result<Vec<Freelancer>, sqlx::Error> {
+    match query {
+        Some(query) => search_freelancers(pool, query).await,
+        None => {
+            let rows = sqlx::query("SELECT * FROM freelancers")
+                .fetch_all(pool)
+                .await?;
+
+            Ok(rows
+                .into_iter()
+                .map(|row| Freelancer {
+                    id: row.get("id"),
+                    name: row.get("name"),
+                    bio: row.get("bio"),
+                })
+                .collect())
+        }
+    }
+}
 ```
-### Step 4: Create API Endpoints for File Upload
 
-Create a new file `services/api/upload.js` with the following code:
-```javascript
-// services/api/upload.js
-const express = require('express');
-const router = express.Router();
-const upload = require('../middleware/multer');
-const s3 = require('../config/aws');
+### Step 4: Create Indexes
 
-router.post('/upload-avatar', upload.single('avatar'), async (req, res) => {
-  try {
-    const file = req.file;
-    const userId = req.user.id;
-
-    const params = {
-      Bucket: process.env.AWS_BUCKET_NAME,
-      Key: `avatars/${userId}.jpg`,
-      Body: file.buffer,
-      ContentType: file.mimetype,
-    };
-
-    const data = await s3.upload(params).promise();
-    res.json({ url: data.Location });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Failed to upload avatar' });
-  }
-});
-
-router.post('/upload-project-image', upload.single('image'), async (req, res) => {
-  try {
-    const file = req.file;
-    const projectId = req.body.projectId;
-
-    const params = {
-      Bucket: process.env.AWS_BUCKET_NAME,
-      Key: `project-images/${projectId}.jpg`,
-      Body: file.buffer,
-      ContentType: file.mimetype,
-    };
-
-    const data = await s3.upload(params).promise();
-    res.json({ url: data.Location });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Failed to upload project image' });
-  }
-});
-
-router.post('/upload-bounty-attachment', upload.single('attachment'), async (req, res) => {
-  try {
-    const file = req.file;
-    const bountyId = req.body.bountyId;
-
-    const params = {
-      Bucket: process.env.AWS_BUCKET_NAME,
-      Key: `bounty-attachments/${bountyId}.pdf`,
-      Body: file.buffer,
-      ContentType: file.mimetype,
-    };
-
-    const data = await s3.upload(params).promise();
-    res.json({ url: data.Location });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Failed to upload bounty attachment' });
-  }
-});
-
-module.exports = router;
+Create indexes on the `title` and `description` columns of the `bounties` table and the `name` and `bio` columns of the `freelancers` table:
+```sql
+CREATE INDEX idx_bounties_title ON bounties USING GIN (to_tsvector('english', title));
+CREATE INDEX idx_bounties_description ON bounties USING GIN (to_tsvector('english', description));
+CREATE INDEX idx_freelancers_name ON freelancers USING GIN (to_tsvector('english', name));
+CREATE INDEX idx_freelancers_bio ON freelancers USING GIN (to_tsvector('english', bio));
 ```
-### Step 5: Integrate with Existing API
 
-Integrate the new upload endpoints with the existing API:
-```javascript
-// services/api/index.js
-const express = require('express');
-const router = express.Router();
-const uploadRouter = require('./upload');
+### Example Use Case
 
-router.use('/upload', uploadRouter);
+To search for bounties with the keyword "rust", you can call the `list_bounties` function with the query:
+```rust
+let pool = sqlx::PgPool::connect("postgres://user:password@host:port/dbname")
+    .await
+    .unwrap();
 
-module.exports = router;
+let bounties = list_bounties(&pool, Some("rust")).await.unwrap();
 ```
-### Example Use Cases
 
-* Upload freelancer avatar: `POST /upload-avatar` with `avatar` field in the request body
-* Upload project image: `POST /upload-project-image` with `image` field in the request body and `projectId` in the request body
-* Upload bounty attachment: `POST /upload-bounty-attachment` with `attachment` field in the request body and `bountyId` in the request body
-
-**Commit Message:**
-```
-Add file upload support using multipart form data handling and S3 storage
-
-* Implement multipart form data handling using Multer
-* Configure AWS S3 for file storage
-* Create API endpoints for uploading freelancer avatars, project images, and bounty attachments
-```
+This will return a list of bounties that contain the keyword "rust" in their title or description.
