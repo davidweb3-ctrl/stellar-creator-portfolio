@@ -3,10 +3,11 @@ import {
   getSupabaseClient,
   getPaginationRange,
   buildPaginatedResponse,
-  getCached,
-  setCache,
-  invalidateCache,
+  getCachedAsync,
+  setCacheAsync,
+  invalidateCacheAsync,
 } from '@/lib/db'
+import { TTL } from '@/lib/redis'
 import {
   bountySchema,
   bountyUpdateSchema,
@@ -70,6 +71,8 @@ export async function GET(request: NextRequest) {
       status: searchParams.get('status') || undefined,
       budget_min: searchParams.get('budget_min') || undefined,
       budget_max: searchParams.get('budget_max') || undefined,
+      sort_by: searchParams.get('sort_by') || undefined,
+      sort_order: searchParams.get('sort_order') || undefined,
     }
 
     const filterValidation = validateRequest(bountyFilterSchema, filterParams)
@@ -80,10 +83,10 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const { category, difficulty, status, budget_min, budget_max } = filterValidation.data
-    const cacheKey = `bounties:${category || 'all'}:${difficulty || 'all'}:${status || 'all'}:${budget_min ?? ''}:${budget_max ?? ''}:${page}:${limit}`
+    const { category, difficulty, status, budget_min, budget_max, sort_by, sort_order } = filterValidation.data
+    const cacheKey = `bounties:${category || 'all'}:${difficulty || 'all'}:${status || 'all'}:${budget_min ?? ''}:${budget_max ?? ''}:${sort_by || 'posted_date'}:${sort_order || 'desc'}:${page}:${limit}`
 
-    const cached = getCached(cacheKey)
+    const cached = await getCachedAsync(cacheKey)
     if (cached) {
       return NextResponse.json(cached)
     }
@@ -110,7 +113,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { data, error, count } = await query
-      .order('posted_date', { ascending: false })
+      .order(sort_by || 'posted_date', { ascending: sort_order === 'asc' })
       .range(from, to)
 
     if (error) {
@@ -118,7 +121,7 @@ export async function GET(request: NextRequest) {
     }
 
     const response = buildPaginatedResponse(data || [], count || 0, { page, limit })
-    setCache(cacheKey, response)
+    await setCacheAsync(cacheKey, response, TTL.SHORT)
 
     return NextResponse.json(response)
   } catch (error) {
@@ -160,7 +163,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    invalidateCache('bounties:')
+    await invalidateCacheAsync('bounties:')
     return NextResponse.json({ data }, { status: 201 })
   } catch (error) {
     return NextResponse.json(
@@ -210,7 +213,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Bounty not found' }, { status: 404 })
     }
 
-    invalidateCache('bounties:')
+    await invalidateCacheAsync('bounties:')
     return NextResponse.json({ data })
   } catch (error) {
     return NextResponse.json(
@@ -241,7 +244,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    invalidateCache('bounties:')
+    await invalidateCacheAsync('bounties:')
     return NextResponse.json({ success: true }, { status: 200 })
   } catch (error) {
     return NextResponse.json(

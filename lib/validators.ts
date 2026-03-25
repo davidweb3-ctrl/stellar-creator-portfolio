@@ -11,6 +11,8 @@ export const bountyFilterSchema = z.object({
   status: z.enum(['open', 'in-progress', 'completed', 'cancelled']).optional(),
   budget_min: z.coerce.number().nonnegative().optional(),
   budget_max: z.coerce.number().positive().optional(),
+  sort_by: z.enum(['posted_date', 'budget']).optional(),
+  sort_order: z.enum(['asc', 'desc']).optional(),
 }).refine(
   (data: { budget_min?: number; budget_max?: number }) =>
     data.budget_min === undefined || data.budget_max === undefined || data.budget_min <= data.budget_max,
@@ -23,6 +25,8 @@ export const creatorFilterSchema = z.object({
   hourly_rate_min: z.coerce.number().nonnegative().optional(),
   hourly_rate_max: z.coerce.number().positive().optional(),
   skills: z.string().max(500).optional(), // comma-separated list
+  sort_by: z.enum(['created_at', 'hourly_rate', 'rating', 'completedProjects']).optional(),
+  sort_order: z.enum(['asc', 'desc']).optional(),
 }).refine(
   (data: { hourly_rate_min?: number; hourly_rate_max?: number }) =>
     data.hourly_rate_min === undefined || data.hourly_rate_max === undefined || data.hourly_rate_min <= data.hourly_rate_max,

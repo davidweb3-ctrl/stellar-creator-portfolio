@@ -3,10 +3,11 @@ import {
   getSupabaseClient,
   getPaginationRange,
   buildPaginatedResponse,
-  getCached,
-  setCache,
-  invalidateCache,
+  getCachedAsync,
+  setCacheAsync,
+  invalidateCacheAsync,
 } from '@/lib/db'
+import { TTL } from '@/lib/redis'
 import {
   creatorSchema,
   creatorUpdateSchema,
@@ -70,6 +71,8 @@ export async function GET(request: NextRequest) {
       hourly_rate_min: searchParams.get('hourly_rate_min') || undefined,
       hourly_rate_max: searchParams.get('hourly_rate_max') || undefined,
       skills: searchParams.get('skills') || undefined,
+      sort_by: searchParams.get('sort_by') || undefined,
+      sort_order: searchParams.get('sort_order') || undefined,
     }
 
     const filterValidation = validateRequest(creatorFilterSchema, filterParams)
@@ -80,10 +83,10 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const { discipline, availability, hourly_rate_min, hourly_rate_max, skills } = filterValidation.data
-    const cacheKey = `creators:${discipline || 'all'}:${availability || 'all'}:${hourly_rate_min ?? ''}:${hourly_rate_max ?? ''}:${skills || 'all'}:${page}:${limit}`
+    const { discipline, availability, hourly_rate_min, hourly_rate_max, skills, sort_by, sort_order } = filterValidation.data
+    const cacheKey = `creators:${discipline || 'all'}:${availability || 'all'}:${hourly_rate_min ?? ''}:${hourly_rate_max ?? ''}:${skills || 'all'}:${sort_by || 'created_at'}:${sort_order || 'desc'}:${page}:${limit}`
 
-    const cached = getCached(cacheKey)
+    const cached = await getCachedAsync(cacheKey)
     if (cached) {
       return NextResponse.json(cached)
     }
@@ -114,7 +117,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { data, error, count } = await query
-      .order('created_at', { ascending: false })
+      .order(sort_by || 'created_at', { ascending: sort_order === 'asc' })
       .range(from, to)
 
     if (error) {
@@ -122,7 +125,7 @@ export async function GET(request: NextRequest) {
     }
 
     const response = buildPaginatedResponse(data || [], count || 0, { page, limit })
-    setCache(cacheKey, response)
+    await setCacheAsync(cacheKey, response, TTL.MEDIUM)
 
     return NextResponse.json(response)
   } catch (error) {
@@ -161,7 +164,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    invalidateCache('creators:')
+    await invalidateCacheAsync('creators:')
     return NextResponse.json({ data }, { status: 201 })
   } catch (error) {
     return NextResponse.json(
@@ -211,7 +214,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
     }
 
-    invalidateCache('creators:')
+    await invalidateCacheAsync('creators:')
     return NextResponse.json({ data })
   } catch (error) {
     return NextResponse.json(
@@ -242,7 +245,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    invalidateCache('creators:')
+    await invalidateCacheAsync('creators:')
     return NextResponse.json({ success: true }, { status: 200 })
   } catch (error) {
     return NextResponse.json(
