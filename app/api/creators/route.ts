@@ -10,6 +10,7 @@ import {
 import {
   creatorSchema,
   creatorUpdateSchema,
+  creatorFilterSchema,
   paginationSchema,
   validateRequest,
   formatZodErrors,
@@ -62,8 +63,25 @@ export async function GET(request: NextRequest) {
     }
 
     const { page, limit } = validation.data
-    const discipline = searchParams.get('discipline')
-    const cacheKey = `creators:${discipline || 'all'}:${page}:${limit}`
+
+    const filterParams = {
+      discipline: searchParams.get('discipline') || undefined,
+      availability: searchParams.get('availability') || undefined,
+      hourly_rate_min: searchParams.get('hourly_rate_min') || undefined,
+      hourly_rate_max: searchParams.get('hourly_rate_max') || undefined,
+      skills: searchParams.get('skills') || undefined,
+    }
+
+    const filterValidation = validateRequest(creatorFilterSchema, filterParams)
+    if (!filterValidation.success) {
+      return NextResponse.json(
+        { error: 'Invalid filter parameters', details: formatZodErrors(filterValidation.errors) },
+        { status: 400 }
+      )
+    }
+
+    const { discipline, availability, hourly_rate_min, hourly_rate_max, skills } = filterValidation.data
+    const cacheKey = `creators:${discipline || 'all'}:${availability || 'all'}:${hourly_rate_min ?? ''}:${hourly_rate_max ?? ''}:${skills || 'all'}:${page}:${limit}`
 
     const cached = getCached(cacheKey)
     if (cached) {
@@ -77,6 +95,22 @@ export async function GET(request: NextRequest) {
 
     if (discipline && discipline !== 'All') {
       query = query.eq('discipline', discipline)
+    }
+    if (availability) {
+      query = query.eq('availability', availability)
+    }
+    if (hourly_rate_min !== undefined) {
+      query = query.gte('hourly_rate', hourly_rate_min)
+    }
+    if (hourly_rate_max !== undefined) {
+      query = query.lte('hourly_rate', hourly_rate_max)
+    }
+    if (skills) {
+      // skills is a comma-separated string; filter creators who have ALL specified skills
+      const skillList = skills.split(',').map((s) => s.trim()).filter(Boolean)
+      if (skillList.length > 0) {
+        query = query.contains('skills', skillList)
+      }
     }
 
     const { data, error, count } = await query

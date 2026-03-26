@@ -10,6 +10,7 @@ import {
 import {
   bountySchema,
   bountyUpdateSchema,
+  bountyFilterSchema,
   paginationSchema,
   validateRequest,
   formatZodErrors,
@@ -62,10 +63,25 @@ export async function GET(request: NextRequest) {
     }
 
     const { page, limit } = validation.data
-    const category = searchParams.get('category')
-    const difficulty = searchParams.get('difficulty')
-    const status = searchParams.get('status')
-    const cacheKey = `bounties:${category || 'all'}:${difficulty || 'all'}:${status || 'all'}:${page}:${limit}`
+
+    const filterParams = {
+      category: searchParams.get('category') || undefined,
+      difficulty: searchParams.get('difficulty') || undefined,
+      status: searchParams.get('status') || undefined,
+      budget_min: searchParams.get('budget_min') || undefined,
+      budget_max: searchParams.get('budget_max') || undefined,
+    }
+
+    const filterValidation = validateRequest(bountyFilterSchema, filterParams)
+    if (!filterValidation.success) {
+      return NextResponse.json(
+        { error: 'Invalid filter parameters', details: formatZodErrors(filterValidation.errors) },
+        { status: 400 }
+      )
+    }
+
+    const { category, difficulty, status, budget_min, budget_max } = filterValidation.data
+    const cacheKey = `bounties:${category || 'all'}:${difficulty || 'all'}:${status || 'all'}:${budget_min ?? ''}:${budget_max ?? ''}:${page}:${limit}`
 
     const cached = getCached(cacheKey)
     if (cached) {
@@ -85,6 +101,12 @@ export async function GET(request: NextRequest) {
     }
     if (status && status !== 'All') {
       query = query.eq('status', status)
+    }
+    if (budget_min !== undefined) {
+      query = query.gte('budget', budget_min)
+    }
+    if (budget_max !== undefined) {
+      query = query.lte('budget', budget_max)
     }
 
     const { data, error, count } = await query

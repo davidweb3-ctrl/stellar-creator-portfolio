@@ -1,16 +1,17 @@
-import { nextConfig } from 'eslint-config-next';
+import nextConfig from 'eslint-config-next';
+import tseslint from 'typescript-eslint';
 
 /** @type {import('eslint').Linter.Config[]} */
 const eslintConfig = [
   ...nextConfig,
-  {
+  ...tseslint.configs.recommended.map((config) => ({
+    ...config,
     rules: {
-      // Warn on explicit any — not an error so existing code doesn't break CI
+      ...config.rules,
       '@typescript-eslint/no-explicit-any': 'warn',
-      // Allow unused vars prefixed with _ (intentionally unused params)
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
     },
-  },
+  })),
 ];
 
 export default eslintConfig;
