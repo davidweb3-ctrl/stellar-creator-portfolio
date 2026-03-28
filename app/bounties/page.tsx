@@ -33,7 +33,9 @@ export default function BountiesPage() {
   };
 
   const BountyCard = ({ bounty }: { bounty: Bounty }) => (
-    <div className="bg-card border border-border rounded-lg p-6 hover:shadow-lg transition-all hover:-translate-y-1">
+    <Link 
+      href={`/bounties/${bounty.id}`}
+      className="block bg-card border border-border rounded-lg p-6 hover:shadow-lg transition-all hover:-translate-y-1"
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
@@ -90,12 +92,20 @@ export default function BountiesPage() {
           <Zap size={14} className="inline mr-1" />
           {bounty.applicants} applications
         </div>
-        <Button size="sm" variant="default" className="group">
-          Apply Now
+        <Button 
+          size="sm" 
+          variant="default" 
+          className="group"
+          onClick={(e) => {
+            e.preventDefault();
+            window.location.href = `/bounties/${bounty.id}`;
+          }}
+        >
+          View Details
           <ArrowRight size={14} className="ml-2 group-hover:translate-x-0.5 transition-transform" />
         </Button>
       </div>
-    </div>
+    </Link>
   );
 
   return (
